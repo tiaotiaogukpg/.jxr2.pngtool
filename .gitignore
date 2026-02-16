@@ -1,0 +1,92 @@
+# ========================
+# 系统文件
+# ========================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+ehthumbs.db
+*.stackdump
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ========================
+# IDE/编辑器文件
+# ========================
+# VS Code
+.vscode/
+.history/
+*.code-workspace
+
+# JetBrains 系列 (IntelliJ, PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+out/
+
+# ========================
+# 日志文件
+# ========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ========================
+# 临时/缓存文件
+# ========================
+*.tmp
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env/
+.venv/
+env/
+venv/
+*.env
+
+# ========================
+# Node.js / JavaScript
+# ========================
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# ========================
+# Java / JVM
+# ========================
+*.class
+*.jar
+*.war
+*.ear
+*.class
+*.log
+*.jks
+*.keystore
+
+# ========================
+# 其他常见
+# ========================
+*.zip
+*.tar.gz
+*.rar
+*.7z
+*.bak
+*.tmp
