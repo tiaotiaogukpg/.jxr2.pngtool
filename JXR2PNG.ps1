@@ -1,12 +1,13 @@
-# JXR 转 PNG（Windows WIC 解码）
+# JXR 转 PNG（Windows WIC 解码）+ 提升亮度
 # 用法: .\JXR2PNG.ps1 <file.jxr> [file2.jxr ...]
 
 Param([Parameter(Mandatory=$false, ValueFromPipeline=$true)][string[]]$Files)
 
 $ErrorActionPreference = 'Stop'
+$BrightnessFactor = 1.1  # 亮度系数，1.1 = 提升 10%
 
-# 加载 WinRT 异步扩展
 Add-Type -AssemblyName System.Runtime.WindowsRuntime | Out-Null
+Add-Type -AssemblyName System.Drawing | Out-Null
 $runtime = [System.WindowsRuntimeSystemExtensions].GetMethods()
 $asTaskT = ($runtime | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
 $asTaskV = ($runtime | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncAction' })[0]
@@ -36,7 +37,25 @@ foreach ($f in $Files) {
         Await-Void ($encoder.FlushAsync())
         $outputStream.Dispose()
 
-        Write-Output $outputFile.Path
+        # 提升亮度后覆盖保存
+        $pngPath = $outputFile.Path
+        $img = [System.Drawing.Bitmap]::FromFile($pngPath)
+        $rect = [System.Drawing.Rectangle]::new(0, 0, $img.Width, $img.Height)
+        $cm = [System.Drawing.Imaging.ColorMatrix]::new()
+        $cm.Matrix00 = $cm.Matrix11 = $cm.Matrix22 = $BrightnessFactor
+        $cm.Matrix33 = $cm.Matrix44 = 1
+        $attr = [System.Drawing.Imaging.ImageAttributes]::new()
+        $attr.SetColorMatrix($cm)
+        $out = [System.Drawing.Bitmap]::new($img.Width, $img.Height)
+        $g = [System.Drawing.Graphics]::FromImage($out)
+        $g.DrawImage($img, $rect, 0, 0, $img.Width, $img.Height, [System.Drawing.GraphicsUnit]::Pixel, $attr)
+        $g.Dispose()
+        $img.Dispose()
+        $out.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        $out.Dispose()
+        $attr.Dispose()
+
+        Write-Output $pngPath
     }
     catch { Write-Error "转换失败: $_" }
 }
