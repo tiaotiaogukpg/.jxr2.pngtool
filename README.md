@@ -1,6 +1,6 @@
 # JXR2PNG 工具
 
-将 GameBar 截图生成的 `.jxr` 转为标准 sRGB `.png`，解决原 PNG 偏暗问题；转换后覆盖同名 PNG 并删除原 JXR。
+将 GameBar 截图生成的 `.jxr` 转为标准 sRGB `.png`，解决原 PNG 偏暗问题。转换成功后删除原 JXR。
 
 ---
 
@@ -8,71 +8,72 @@
 
 | 文件 | 用途 |
 |------|------|
-| **JXR2PNG.exe** | 主程序（编译产物），C# 控制台，纯 WIC 色彩管理，速度最快 |
-| **JXR2PNG.bat** | 批处理入口：扫描当前目录 `.jxr`，逐个转换，成功后删除原文件 |
-| **JXR2PNG.ps1** | 脚本版实现（备选）：PowerShell + WIC + System.Drawing gamma 校正 |
+| **JXR2PNG.exe** | 主程序（编译产物），双击即批量转换 exe 所在目录下的 .jxr |
+| **JXR2PNG.bat** | 批处理：优先调用同目录 exe，否则调用 ps1 |
+| **JXR2PNG.ps1** | 脚本版（备选）：PowerShell + WIC + gamma 校正 |
 | **Program.cs** | C# 主程序源码 |
-| **JXR2PNG.csproj** | C# 项目配置（.NET 10） |
-| **build.bat** | 编译脚本：`dotnet build` 及单 exe 发布 |
+| **JXR2PNG.csproj** | .NET 10 项目配置 |
+| **build.bat** | 编译并发布单 exe |
 | **.gitignore** | Git 忽略规则 |
-| **README.md** | 本说明文档 |
+| **README.md** | 本说明 |
 
 ---
 
-## 各文件详细说明
+## 使用
 
-### JXR2PNG.exe（推荐使用）
+### 推荐：JXR2PNG.exe
 
-- **作用**：将单个 JXR 转为 PNG  
-- **用法**：`JXR2PNG.exe input.jxr output.png`  
-- **实现**：纯 WIC（无 System.Drawing / LockBits / 像素循环）
-  - `IWICBitmapDecoder` 解码 JXR
-  - `IWICColorTransform` 做线性→sRGB 色彩转换
-  - `IWICBitmapEncoder` 输出 PNG
-- **输出**：含 sRGB 色彩信息（iCCP / gAMA / cHRM）的标准 PNG  
-- **位置**：编译后在 `bin\Release\net10.0\JXR2PNG.exe`；单 exe 发布后在 `bin\Release\net10.0\win-x64\publish\JXR2PNG.exe`
+1. 将 `JXR2PNG.exe` 复制到 GameBar 捕获目录（如 `C:\Users\<用户名>\Videos\Captures\`）
+2. 双击运行
+3. 程序会扫描 exe 所在目录内所有 `*.jxr`、`*.JXR`，逐个转为同名 `.png`，成功后删除原文件
+4. 结束时显示成功/失败数量，按 Enter 退出
+
+无需参数，双击即可批量转换。
+
+### 备选：JXR2PNG.bat + JXR2PNG.ps1
+
+当 exe 不存在时，`JXR2PNG.bat` 会调用 `JXR2PNG.ps1` 做转换，依赖 PowerShell 和 System.Drawing。
+
+---
+
+## 各文件说明
+
+### JXR2PNG.exe
+
+- **运行方式**：双击，无命令行参数
+- **扫描目录**：exe 所在目录（使用 `Environment.ProcessPath`，单文件 exe 下正确）
+- **匹配文件**：`*.jxr`、`*.JXR`
+- **输出**：同名 `.png`，含 sRGB 色彩信息（iCCP/gAMA/cHRM）
+- **删除**：仅当 PNG 成功生成后才删除原 `.jxr`
+- **实现**：纯 WIC（IWICBitmapDecoder → IWICColorTransform → IWICBitmapEncoder），无 System.Drawing、LockBits、像素循环
 
 ### JXR2PNG.bat
 
-- **作用**：批量转换当前目录下所有 `.jxr`
-- **流程**：
-  1. 切换到脚本所在目录
-  2. 扫描 `*.jxr`
-  3. 对每个 JXR 调用 `JXR2PNG.ps1` 生成同名 `.png`
-  4. 生成成功后删除对应 `.jxr`
-  5. 输出进度
-- **依赖**：`JXR2PNG.ps1`、PowerShell  
-- **编码**：GBK，编辑后若乱码请以 ANSI/GBK 保存
+- 优先查找同目录 `JXR2PNG.exe`，存在则直接运行
+- 无 exe 时调用 `JXR2PNG.ps1` 批量转换
+- 编码：GBK，编辑后若乱码请以 ANSI/GBK 保存
 
 ### JXR2PNG.ps1
 
-- **作用**：脚本版 JXR→PNG 转换（备选实现）
-- **实现**：WIC 解码 + 编码，再通过 System.Drawing + LockBits + gamma LUT 做线性→sRGB 校正
-- **用法**：`.\JXR2PNG.ps1 <file.jxr> [file2.jxr ...]` 或由 `JXR2PNG.bat` 调用
-- **依赖**：Windows 自带 PowerShell、WIC（WMPhoto 解码器）
+- 脚本版转换，依赖 WIC + System.Drawing gamma 校正
+- 用法：`.\JXR2PNG.ps1 <file.jxr> [file2.jxr ...]` 或由 bat 调用
 
 ### Program.cs
 
-- **作用**：JXR2PNG.exe 的 C# 源码
-- **结构**：COM 初始化 → 解码 → 色彩转换 → 编码 → COM 释放
-- **无**：System.Drawing、LockBits、托管像素循环、手写 gamma
+- Main 为无参数批量模式
+- 流程：COM 初始化 → 扫描 → 逐个 ConvertJxrToPng → 删除成功项 → 统计 → 等待 Enter
 
 ### JXR2PNG.csproj
 
-- **作用**：.NET 项目配置
-- **目标框架**：net10.0  
-- **输出**：控制台 exe
+- 目标：net10.0，OutputType=Exe
+- 单 exe 发布：`dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
 
 ### build.bat
 
-- **作用**：一键编译 JXR2PNG.exe
-- **步骤**：`dotnet build` 后执行 `dotnet publish` 生成单 exe
-- **依赖**：.NET SDK；若 `dotnet` 不在 PATH，会尝试 `C:\Program Files\dotnet\dotnet.exe`
-- **用法**：双击或命令行执行
-
-### .gitignore
-
-- **作用**：指定 Git 忽略的文件（IDE、缓存、临时文件等）
+- 执行 `dotnet build` 和 `dotnet publish`
+- dotnet 不在 PATH 时尝试 `C:\Program Files\dotnet\dotnet.exe`
+- 普通输出：`bin\Release\net10.0\JXR2PNG.exe`
+- 单 exe 输出：`bin\Release\net10.0\win-x64\publish\JXR2PNG.exe`
 
 ---
 
@@ -82,7 +83,7 @@
 # 普通编译
 dotnet build -c Release
 
-# 单 exe 发布
+# 单 exe 发布（推荐，双击即用）
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
@@ -90,20 +91,14 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 ---
 
-## 部署与使用
+## 部署
 
-1. 将以下文件复制到 GameBar 捕获目录（如 `C:\Users\<用户名>\Videos\Captures\`）：
-   - `JXR2PNG.exe`（或 `JXR2PNG.ps1` + `JXR2PNG.bat`）
-2. 双击 `JXR2PNG.bat` 批量处理；或命令行执行：
-   ```
-   JXR2PNG.exe input.jxr output.png
-   ```
-3. 脚本会覆盖与 JXR 同名的 PNG，并删除原 JXR。
+将 `bin\Release\net10.0\win-x64\publish\JXR2PNG.exe` 复制到 GameBar 捕获目录，双击即可批量转换该目录下所有 `.jxr`。
 
 ---
 
 ## 说明
 
 - 依赖 Windows 内置 WIC（WMPhoto 支持 JXR）
-- 仅覆盖与 `.jxr` 同名的 `.png`，不删除其他图片
-- 若使用 exe：需将 `JXR2PNG.bat` 改为调用 exe 而非 ps1
+- 仅处理 `.jxr` 文件，仅删除转换成功后的原 jxr
+- 单 exe 为自包含，无需安装 .NET 运行时
