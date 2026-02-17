@@ -93,4 +93,6 @@ coverage/
 
 bin/
 obj/
+publish/
+publish.bat
 *.exe

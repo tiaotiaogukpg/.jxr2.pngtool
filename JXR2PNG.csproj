@@ -7,6 +7,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- dotnet publish -c Release -r win-x64 生成单 exe -->
+    <!-- 瘦身：裁剪未用代码(partial 保守模式) | 单文件内压缩 -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
 </Project>
