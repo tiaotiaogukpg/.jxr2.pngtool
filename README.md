@@ -29,7 +29,7 @@
 |------|-----------------|-------------------------------|
 | **依赖** | 无，单文件自带 .NET | 需系统有 PowerShell |
 | **调用关系** | 独立运行 | bat 优先调 exe，无 exe 时逐个调用 ps1 |
-| **解码/编码** | WinRT（内存流）优先，失败回退 WIC（COM） | 纯 WinRT（StorageFile） |
+| **解码/编码** | WIC（COM）优先，失败回退 WinRT（内存流） | 纯 WinRT（StorageFile） |
 | **色彩处理** | WIC 色彩管理 或 WinRT 直接输出 | WinRT 输出后，用 System.Drawing 做线性→sRGB gamma 校正 |
 | **HDR 支持** | 支持，非 Bgra8 自动转为 Bgra8 | 直接 SetSoftwareBitmap，HDR 格式可能失败 |
 | **中文路径** | 用内存流，避免路径问题 | StorageFile 对部分中文路径可能异常 |

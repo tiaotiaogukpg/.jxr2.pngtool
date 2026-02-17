@@ -100,11 +100,7 @@ static class Program
     static bool ConvertJxrToPng(string inputPath, string outputPath, out string? diagError)
     {
         diagError = null;
-        // 先用 WinRT（对 HDR/中文路径支持可能更好），失败再试 WIC
-        if (ConvertJxrToPngWinRT(inputPath, outputPath, out diagError))
-            return true;
-        Console.WriteLine("  (WinRT 失败，尝试 WIC 备选...)");
-        diagError = null;
+        // 先用 WIC（色彩管理更完备），失败再试 WinRT（HDR 备选）
         try
         {
             if (ConvertJxrToPngCore(inputPath, outputPath, out diagError))
@@ -114,7 +110,9 @@ static class Program
         {
             diagError = $"{ex.GetType().Name}: {ex.Message}";
         }
-        return false;
+        Console.WriteLine("  (WIC 失败，尝试 WinRT 备选...)");
+        diagError = null;
+        return ConvertJxrToPngWinRT(inputPath, outputPath, out diagError);
     }
 
     static bool ConvertJxrToPngWinRT(string inputPath, string outputPath, out string? diagError)
