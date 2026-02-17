@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 [assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
 
@@ -26,7 +27,7 @@ static class Program
         }
         if (hr != 0 && hr != 1)
         {
-            Console.WriteLine("错误：COM 初始化失败 (0x" + hr.ToString("X8") + ")");
+            Console.WriteLine("错误：COM 初始化失败 (0x" + hr.ToString("s8") + ")");
             Console.WriteLine("按 Enter 键退出...");
             Console.ReadLine();
             return 1;
@@ -115,6 +116,122 @@ static class Program
         return ConvertJxrToPngWinRT(inputPath, outputPath, out diagError);
     }
 
+    /// <summary>HDR float → SDR 8-bit：Tone Mapping (Filmic) + Clamp + sRGB Gamma</summary>
+    static byte ConvertChannel(float hdr, float exposure = 1.2f)
+    {
+        float A = 2.51f;
+        float B = 0.03f;
+        float C = 2.43f;
+        float D = 0.59f;
+        float E = 0.14f;
+
+        float x = hdr * exposure;
+        float mapped = (x * (A * x + B)) / (x * (C * x + D) + E);
+
+        if (mapped < 0f) mapped = 0f;
+        if (mapped > 1f) mapped = 1f;
+        if (mapped <= 0.0031308f)
+            mapped = 12.92f * mapped;
+        else
+            mapped = 1.055f * MathF.Pow(mapped, 1f / 2.4f) - 0.055f;
+        return (byte)(mapped * 255f + 0.5f);
+    }
+
+    /// <summary>Unreal 风格 Tone Map，输入 HDR 输出 0~1 linear</summary>
+    static float ToneMap(float hdr, float exposure = 1.55f)
+    {
+        float a = 0.22f, b = 0.30f, c = 0.10f, d = 0.20f, e = 0.01f, f = 0.30f;
+        float x = hdr * exposure;
+        float mapped = ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+        if (mapped < 0f) mapped = 0f;
+        if (mapped > 1f) mapped = 1f;
+        return mapped;
+    }
+
+    /// <summary>Linear 0~1 → sRGB 8-bit</summary>
+    static byte LinearToSrgbByte(float linear)
+    {
+        if (linear < 0f) linear = 0f;
+        if (linear > 1f) linear = 1f;
+        if (linear <= 0.0031308f)
+            linear = 12.92f * linear;
+        else
+            linear = 1.055f * MathF.Pow(linear, 1f / 2.4f) - 0.055f;
+        return (byte)(linear * 255f + 0.5f);
+    }
+
+    /// <summary>Rgba16 half-float scRGB → Bgra8，基于亮度的 Tone Mapping + sRGB Gamma</summary>
+    static Windows.Graphics.Imaging.SoftwareBitmap ConvertHdrToBgra8(Windows.Graphics.Imaging.SoftwareBitmap src)
+    {
+        int w = src.PixelWidth;
+        int h = src.PixelHeight;
+        int srcStride = w * 8;
+        int srcLen = srcStride * h;
+        byte[] srcPixels = new byte[srcLen];
+        var srcBuffer = srcPixels.AsBuffer();
+        src.CopyToBuffer(srcBuffer);
+
+        int dstStride = w * 4;
+        byte[] dstPixels = new byte[dstStride * h];
+        for (int y = 0; y < h; y++)
+        {
+            int srcRow = y * srcStride;
+            int dstRow = y * dstStride;
+            for (int x = 0; x < w; x++)
+            {
+                int si = srcRow + x * 8;
+                float r = (float)BitConverter.ToHalf(srcPixels, si);
+                float g = (float)BitConverter.ToHalf(srcPixels, si + 2);
+                float b = (float)BitConverter.ToHalf(srcPixels, si + 4);
+                float a = (float)BitConverter.ToHalf(srcPixels, si + 6);
+
+                float L = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+                float mappedL = ToneMap(L, 1.55f);
+                float scale = mappedL / (L + 1e-6f);
+
+                r *= scale;
+                g *= scale;
+                b *= scale;
+
+                float sat = 1.08f;
+                float avg = (r + g + b) / 3f;
+                r = avg + (r - avg) * sat;
+                g = avg + (g - avg) * sat;
+                b = avg + (b - avg) * sat;
+
+                float exposureAdj = 0.93f;
+                float brightnessAdj = 0.04f;
+                float contrastAdj = 1.20f;
+                r *= exposureAdj;
+                g *= exposureAdj;
+                b *= exposureAdj;
+                r += brightnessAdj;
+                g += brightnessAdj;
+                b += brightnessAdj;
+                r = (r - 0.5f) * contrastAdj + 0.5f;
+                g = (g - 0.5f) * contrastAdj + 0.5f;
+                b = (b - 0.5f) * contrastAdj + 0.5f;
+
+                if (r < 0f) r = 0f; if (r > 1f) r = 1f;
+                if (g < 0f) g = 0f; if (g > 1f) g = 1f;
+                if (b < 0f) b = 0f; if (b > 1f) b = 1f;
+
+                int di = dstRow + x * 4;
+                dstPixels[di] = LinearToSrgbByte(b);
+                dstPixels[di + 1] = LinearToSrgbByte(g);
+                dstPixels[di + 2] = LinearToSrgbByte(r);
+                dstPixels[di + 3] = a <= 0f ? (byte)0 : (a >= 1f ? (byte)255 : (byte)(a * 255f + 0.5f));
+            }
+        }
+
+        var dstBitmap = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
+            dstPixels.AsBuffer(),
+            Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
+            w, h,
+            src.BitmapAlphaMode);
+        return dstBitmap;
+    }
+
     static bool ConvertJxrToPngWinRT(string inputPath, string outputPath, out string? diagError)
     {
         diagError = null;
@@ -138,7 +255,10 @@ static class Program
             memStream.Dispose();
             if (softwareBitmap.BitmapPixelFormat != Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8)
             {
-                softwareBitmap = Windows.Graphics.Imaging.SoftwareBitmap.Convert(softwareBitmap, Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8);
+                if (softwareBitmap.BitmapPixelFormat == Windows.Graphics.Imaging.BitmapPixelFormat.Rgba16)
+                    softwareBitmap = ConvertHdrToBgra8(softwareBitmap);
+                else
+                    softwareBitmap = Windows.Graphics.Imaging.SoftwareBitmap.Convert(softwareBitmap, Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8);
             }
 
             var outStream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
