@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("JXR2PNG")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+834169a9a1ae71760d1b6d07384c6525b021216a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b694e4ee357a67da47f9ff64a7d52ea9ea45b3fd")]
 [assembly: System.Reflection.AssemblyProductAttribute("JXR2PNG")]
 [assembly: System.Reflection.AssemblyTitleAttribute("JXR2PNG")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
