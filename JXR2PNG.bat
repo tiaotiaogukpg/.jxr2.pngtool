@@ -4,19 +4,19 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ========================================
-echo   JXR в╙ PNG еЗа©в╙╩╩
+echo   JXR Х╫╛ PNG Ф┴╧И┤▐Х╫╛Ф█╒
 echo ========================================
 echo.
 
 set "n=0"
 for %%F in (*.jxr) do set /a n+=1
 if %n%==0 (
-    echo ╣╠г╟д©б╪обн╢ур╣╫ .jxr нд╪Ч║ё
+    echo Е╫⌠Е┴█Г⌡╝Е╫∙Д╦▀Ф°╙Ф┴╬Е┬╟ .jxr Ф√┤Д╩╤Ц─┌
     pause
     exit /b 0
 )
 
-echo ур╣╫ %n% ╦Ж .jxr нд╪Чё╛©╙й╪╢╕юМ...
+echo Ф┴╬Е┬╟ %n% Д╦╙ .jxr Ф√┤Д╩╤О╪▄Е╪─Е╖▀Е╓└Г░├...
 echo.
 
 set "ps1=%~dp0JXR2PNG.ps1"
@@ -29,14 +29,14 @@ for %%F in (*.jxr) do (
     powershell -NoProfile -NoLogo -ExecutionPolicy Bypass -File "!ps1!" "!jxrPath!" 1>nul
     if exist "!pngPath!" (
         del "%%F"
-        echo       в╙╩╩мЙЁиё╛ряи╬ЁЩ .jxr
+        echo       Х╫╛Ф█╒Е╝▄Ф┬░О╪▄Е╥╡Е┬═И≥╓ .jxr
     ) else (
-        echo       в╙╩╩й╖╟э
+        echo       Х╫╛Ф█╒Е╓╠Х╢╔
     )
     echo.
 )
 
 echo ========================================
-echo   х╚╡©мЙЁи
+echo   Е┘╗И┐╗Е╝▄Ф┬░
 echo ========================================
 pause
