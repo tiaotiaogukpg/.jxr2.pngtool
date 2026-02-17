@@ -7,10 +7,12 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- dotnet publish -c Release -r win-x64 生成单 exe -->
-    <!-- 瘦身：裁剪未用代码(partial 保守模式) | 单文件内压缩 -->
+    <!-- 瘦身：裁剪 | 压缩 | 禁用全球化 | 无调试符号 -->
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
 </Project>
