@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj": {}
+    "d:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj": {}
   },
   "projects": {
-    "D:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj": {
+    "d:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj",
+        "projectUniqueName": "d:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj",
         "projectName": "JXR2PNG",
-        "projectPath": "D:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj",
+        "projectPath": "d:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj",
         "packagesPath": "C:\\Users\\HarperSu\\.nuget\\packages\\",
-        "outputPath": "D:\\tools\\N01_.JXRtrans2.pngtool\\obj\\",
+        "outputPath": "d:\\tools\\N01_.JXRtrans2.pngtool\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\HarperSu\\AppData\\Roaming\\NuGet\\NuGet.Config"

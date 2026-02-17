@@ -13,15 +13,20 @@ namespace JXR2PNG;
 
 static class Program
 {
+    [STAThread]
     static int Main(string[] args)
     {
         string scanDir = Path.GetDirectoryName(Environment.ProcessPath) ?? Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory);
         Console.WriteLine("扫描目录: " + scanDir);
 
         int hr = Ole32.CoInitializeEx(IntPtr.Zero, Ole32.COINIT_APARTMENTTHREADED);
+        if (hr != 0 && hr != 1) // STA 失败则尝试 MTA (如 RPC_E_CHANGED_MODE)
+        {
+            hr = Ole32.CoInitializeEx(IntPtr.Zero, Ole32.COINIT_MULTITHREADED);
+        }
         if (hr != 0 && hr != 1)
         {
-            Console.WriteLine("错误：COM 初始化失败");
+            Console.WriteLine("错误：COM 初始化失败 (0x" + hr.ToString("X8") + ")");
             Console.WriteLine("按 Enter 键退出...");
             Console.ReadLine();
             return 1;
@@ -92,12 +97,10 @@ static class Program
         IWICImagingFactory? factory = null;
         IWICBitmapDecoder? decoder = null;
         IWICBitmapFrameDecode? frame = null;
-        IWICColorContext? ctxSrc = null;
-        IWICColorContext? ctxDst = null;
-        IWICColorTransform? colorTransform = null;
         IWICBitmapEncoder? encoder = null;
         IWICBitmapFrameEncode? frameEncode = null;
-        IWICStream? stream = null;
+        IStream? outputStream = null;
+        object? bitmapSource = null;
 
         try
         {
@@ -127,56 +130,14 @@ static class Program
             if (hr != 0 || frame == null)
                 return false;
 
-            uint ctxCount = 0;
-            frame.GetColorContexts(0, null, out ctxCount);
-            if (ctxCount > 0)
-            {
-                var contexts = new IWICColorContext[ctxCount];
-                for (int i = 0; i < ctxCount; i++)
-                    hr = factory.CreateColorContext(out contexts[i]);
-                frame.GetColorContexts(ctxCount, contexts, out ctxCount);
-                if (ctxCount > 0 && contexts[0] != null)
-                    ctxSrc = contexts[0];
-            }
+            bitmapSource = (object?)TryCreateColorTransform(factory, frame)
+                ?? CreateFormatConverterSource(factory, frame);
 
-            if (ctxSrc == null)
-            {
-                hr = factory.CreateColorContext(out ctxSrc);
-                if (ctxSrc != null)
-                {
-                    string sRgbIcm = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.System),
-                        "spool", "drivers", "color", "sRGB Color Space Profile.icm");
-                    if (File.Exists(sRgbIcm))
-                        ctxSrc.InitializeFromFilename(sRgbIcm);
-                    else
-                        ctxSrc.InitializeFromExifColorSpace(1);
-                }
-            }
-
-            if (ctxSrc == null)
+            if (bitmapSource == null)
                 return false;
 
-            hr = factory.CreateColorContext(out ctxDst);
-            if (ctxDst == null)
-                return false;
-            ctxDst.InitializeFromExifColorSpace(1); // sRGB
-
-            hr = factory.CreateColorTransform(out colorTransform);
-            if (colorTransform == null)
-                return false;
-
-            var pfDest = WicGuids.GUID_WICPixelFormat32bppBGRA;
-            hr = colorTransform.Initialize((IWICBitmapSource)frame, ctxSrc, ctxDst, ref pfDest);
-            if (hr != 0)
-                return false;
-
-            hr = factory.CreateStream(out stream);
-            if (stream == null)
-                return false;
-
-            hr = stream.InitializeFromFilename(outputPath, 0x40000000); // GENERIC_WRITE
-            if (hr != 0)
+            outputStream = Shlwapi.SHCreateStreamOnFileEx(outputPath, 0x1011, 0, true, IntPtr.Zero); // STGM_CREATE|STGM_WRITE|STGM_SHARE_EXCLUSIVE
+            if (outputStream == null)
                 return false;
 
             var fmtPng = WicGuids.GUID_ContainerFormatPng;
@@ -184,7 +145,7 @@ static class Program
             if (hr != 0 || encoder == null)
                 return false;
 
-            hr = encoder.Initialize((IStream)stream, 0); // WICBitmapEncoderNoCache, IWICStream inherits IStream
+            hr = encoder.Initialize(outputStream, 0); // WICBitmapEncoderNoCache
             if (hr != 0)
                 return false;
 
@@ -196,7 +157,11 @@ static class Program
             if (hr != 0)
                 return false;
 
-            colorTransform.GetSize(out uint width, out uint height);
+            uint width, height;
+            if (bitmapSource is IWICColorTransform ct)
+                ct.GetSize(out width, out height);
+            else
+                ((IWICFormatConverter)bitmapSource).GetSize(out width, out height);
             hr = frameEncode.SetSize(width, height);
             if (hr != 0)
                 return false;
@@ -206,22 +171,28 @@ static class Program
             if (hr != 0)
                 return false;
 
-            IWICColorContext? ctxPng = null;
-            hr = factory.CreateColorContext(out ctxPng);
-            if (ctxPng != null)
+            try
             {
-                string sRgbIcm = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.System),
-                    "spool", "drivers", "color", "sRGB Color Space Profile.icm");
-                if (File.Exists(sRgbIcm))
+                hr = factory.CreateColorContext(out IWICColorContext? ctxPng);
+                if (ctxPng != null)
                 {
-                    ctxPng.InitializeFromFilename(sRgbIcm);
-                    var arr = new IWICColorContext[] { ctxPng };
-                    frameEncode.SetColorContexts(1, arr);
+                    string sRgbIcm = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.System),
+                        "spool", "drivers", "color", "sRGB Color Space Profile.icm");
+                    if (File.Exists(sRgbIcm))
+                    {
+                        ctxPng.InitializeFromFilename(sRgbIcm);
+                        var arr = new IWICColorContext[] { ctxPng };
+                        frameEncode.SetColorContexts(1, arr);
+                    }
                 }
             }
+            catch
+            {
+                /* 跳过 sRGB 元数据，PNG 仍可正常生成 */
+            }
 
-            hr = frameEncode.WriteSource((IWICBitmapSource)colorTransform, IntPtr.Zero);
+            hr = frameEncode.WriteSource((IWICBitmapSource)bitmapSource, IntPtr.Zero);
             if (hr != 0)
                 return false;
 
@@ -236,20 +207,99 @@ static class Program
         {
             if (frameEncode != null) Marshal.ReleaseComObject(frameEncode);
             if (encoder != null) Marshal.ReleaseComObject(encoder);
-            if (stream != null) Marshal.ReleaseComObject(stream);
-            if (colorTransform != null) Marshal.ReleaseComObject(colorTransform);
-            if (ctxDst != null) Marshal.ReleaseComObject(ctxDst);
-            if (ctxSrc != null) Marshal.ReleaseComObject(ctxSrc);
+            if (outputStream != null) Marshal.ReleaseComObject(outputStream);
+            if (bitmapSource != null) Marshal.ReleaseComObject(bitmapSource);
             if (frame != null) Marshal.ReleaseComObject(frame);
             if (decoder != null) Marshal.ReleaseComObject(decoder);
             if (factory != null) Marshal.ReleaseComObject(factory);
         }
+    }
+
+    static IWICColorTransform? TryCreateColorTransform(IWICImagingFactory factory, IWICBitmapFrameDecode frame)
+    {
+        try
+        {
+            IWICColorContext? ctxSrc = null;
+            uint ctxCount = 0;
+            frame.GetColorContexts(0, Array.Empty<IWICColorContext>(), out ctxCount);
+            if (ctxCount > 0)
+            {
+                var contexts = new IWICColorContext[ctxCount];
+                for (int i = 0; i < ctxCount; i++)
+                    factory.CreateColorContext(out contexts[i]);
+                frame.GetColorContexts(ctxCount, contexts, out ctxCount);
+                if (ctxCount > 0 && contexts[0] != null)
+                    ctxSrc = contexts[0];
+            }
+            if (ctxSrc == null)
+            {
+                factory.CreateColorContext(out ctxSrc);
+                if (ctxSrc != null)
+                {
+                    string sRgbIcm = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.System),
+                        "spool", "drivers", "color", "sRGB Color Space Profile.icm");
+                    if (File.Exists(sRgbIcm))
+                        ctxSrc.InitializeFromFilename(sRgbIcm);
+                    else
+                        ctxSrc.InitializeFromExifColorSpace(1);
+                }
+            }
+            if (ctxSrc == null) return null;
+
+            factory.CreateColorContext(out IWICColorContext ctxDst);
+            ctxDst.InitializeFromExifColorSpace(1);
+
+            factory.CreateColorTransform(out IWICColorTransform colorTransform);
+            var pfDest = WicGuids.GUID_WICPixelFormat32bppBGRA;
+            if (colorTransform.Initialize((IWICBitmapSource)frame, ctxSrc, ctxDst, ref pfDest) != 0)
+                return null;
+            return colorTransform;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    static IWICFormatConverter? CreateFormatConverterSource(IWICImagingFactory factory, IWICBitmapFrameDecode frame)
+    {
+        if (factory.CreateFormatConverter(out IWICFormatConverter converter) != 0 || converter == null)
+            return null;
+        var pf = WicGuids.GUID_WICPixelFormat32bppBGRA;
+        if (converter.Initialize((IWICBitmapSource)frame, ref pf, 0, IntPtr.Zero, 0.0, 0) != 0)
+            return null;
+        return converter;
+    }
+}
+
+static class Shlwapi
+{
+    private const int STGM_CREATE = 0x1000;
+    private const int STGM_WRITE = 0x1;
+    private const int STGM_SHARE_EXCLUSIVE = 0x10;
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int SHCreateStreamOnFileEx(
+        [MarshalAs(UnmanagedType.LPWStr)] string pszFile,
+        uint grfMode,
+        uint dwAttributes,
+        bool fCreate,
+        IntPtr pstmTemplate,
+        out IStream ppstm);
+
+    internal static IStream? SHCreateStreamOnFileEx(string path, uint grfMode, uint attrs, bool fCreate, IntPtr template)
+    {
+        if (SHCreateStreamOnFileEx(path, grfMode, attrs, fCreate, template, out IStream s) == 0)
+            return s;
+        return null;
     }
 }
 
 static class Ole32
 {
     internal const int COINIT_APARTMENTTHREADED = 2;
+    internal const int COINIT_MULTITHREADED = 4;
 
     [DllImport("ole32.dll")]
     internal static extern int CoInitializeEx(IntPtr pvReserved, int dwCoInit);
@@ -295,6 +345,8 @@ interface IWICImagingFactory
     int CreateColorTransform(out IWICColorTransform ppIWICColorTransform);
     [PreserveSig]
     int CreateEncoder(ref Guid guidContainerFormat, IntPtr pguidVendor, out IWICBitmapEncoder ppIEncoder);
+    [PreserveSig]
+    int CreateFormatConverter(out IWICFormatConverter ppIFormatConverter);
 }
 
 [ComImport]
@@ -341,6 +393,20 @@ interface IWICColorContext
     int InitializeFromExifColorSpace(uint value);
     void GetType(out int pType);
     void GetProfileBytes(uint cbBuffer, IntPtr pbBuffer, out uint pcbActual);
+}
+
+[ComImport]
+[Guid("00000301-a8f2-4877-ba0a-fd2b6645fb94")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IWICFormatConverter
+{
+    void GetSize(out uint puiWidth, out uint puiHeight);
+    void GetPixelFormat(out Guid pPixelFormat);
+    void GetResolution(out double pDpiX, out double pDpiY);
+    void CopyPalette(IntPtr pIPalette);
+    void CopyPixels(IntPtr prc, uint cbStride, uint cbBufferSize, IntPtr pbBuffer);
+    [PreserveSig]
+    int Initialize(IWICBitmapSource pISource, ref Guid dstFormat, int dither, IntPtr pIPalette, double alphaThresholdPercent, int paletteTranslate);
 }
 
 [ComImport]

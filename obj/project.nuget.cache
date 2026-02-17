@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "+maiXovGmm4=",
+  "dgSpecHash": "2sCrhhmf/VI=",
   "success": true,
-  "projectFilePath": "D:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj",
+  "projectFilePath": "d:\\tools\\N01_.JXRtrans2.pngtool\\JXR2PNG.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\HarperSu\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.3\\microsoft.net.illink.tasks.10.0.3.nupkg.sha512",
     "C:\\Users\\HarperSu\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.3\\microsoft.netcore.app.runtime.win-x64.10.0.3.nupkg.sha512",
