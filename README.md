@@ -23,11 +23,12 @@ PowerShell 脚本，负责：
 1. 接收一个或多个 `.jxr` 文件路径
 2. 使用 Windows 内置 WIC（WMPhoto 解码器）解码 JXR
 3. 在同目录下生成同名 `.png`，覆盖已有同名文件
-4. 对生成的 `.png` 应用亮度提升（默认 1.1 倍，暗部少提、高光多提，避免暗部发灰）
+4. 对生成的 `.png` 应用亮度提升（暗部少提、高光多提）+ 饱和度提升（减轻发灰、恢复鲜艳）
 5. 输出生成的 `.png` 完整路径
 
 参数：
-- `$BrightnessFactor`：高光/中间调提升系数（>1 变亮）
+- `$BrightnessFactor`：高光提升系数（默认 1.08）
+- `$SaturationFactor`：饱和度提升（默认 1.22，>1 更鲜艳）
 - `$ShadowPreserve`：`$true` 时暗部少提亮，保留层次；`$false` 时全图线性提亮
 
 ---
@@ -55,3 +56,4 @@ C:\Users\<用户名>\Videos\Captures\
 - 仅 2 个文本文件，约 4KB
 - 依赖 Windows 内置 WIC（WMPhoto 解码器）
 - 仅覆盖与 `.jxr` 同名的 `.png`，不删除其他图片
+- `JXR2PNG.bat` 采用 GBK 编码以正确显示中文；编辑后若出现乱码，请以 ANSI/GBK 编码重新保存

@@ -3,28 +3,35 @@
 
 Param([Parameter(Mandatory=$false, ValueFromPipeline=$true)][string[]]$Files)
 
+[Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(936)
 $ErrorActionPreference = 'Stop'
-$BrightnessFactor = 1.1   # 高光/中间调提升约 10%
+$BrightnessFactor = 1.08  # 高光提升约 8%，减轻发灰
+$SaturationFactor = 1.22 # 饱和度提升 22%，减轻发灰感
 $ShadowPreserve = $true  # 暗部少提亮，避免发灰
 
 Add-Type -AssemblyName System.Runtime.WindowsRuntime | Out-Null
 Add-Type -AssemblyName System.Drawing | Out-Null
 
-# 编译 C# 快速亮度处理（比 PowerShell 循环快约 10 倍）
+# 编译 C# 快速亮度+饱和度处理
 $brightnessCs = @'
 public static class BrightnessLut {
-    public static void Apply(byte[] rgb, byte[] lut, int bpp) {
+    public static void Apply(byte[] rgb, byte[] lut, int bpp, float sat) {
         int n = rgb.Length;
         if (bpp == 4) {
             for (int i = 0; i < n; i += 4) {
-                rgb[i] = lut[rgb[i]];
-                rgb[i+1] = lut[rgb[i+1]];
-                rgb[i+2] = lut[rgb[i+2]];
+                int b = lut[rgb[i]], g = lut[rgb[i+1]], r = lut[rgb[i+2]];
+                float L = 0.299f*r + 0.587f*g + 0.114f*b;
+                rgb[i]   = (byte)Math.Max(0, Math.Min(255, (int)(L + sat*(b-L) + 0.5f)));
+                rgb[i+1] = (byte)Math.Max(0, Math.Min(255, (int)(L + sat*(g-L) + 0.5f)));
+                rgb[i+2] = (byte)Math.Max(0, Math.Min(255, (int)(L + sat*(r-L) + 0.5f)));
             }
         } else {
             for (int i = 0; i < n; i += bpp) {
-                int lim = bpp < 3 ? bpp : 3;
-                for (int c = 0; c < lim; c++) rgb[i + c] = lut[rgb[i + c]];
+                int b = lut[rgb[i]], g = lut[rgb[i+1]], r = lut[rgb[i+2]];
+                float L = 0.299f*r + 0.587f*g + 0.114f*b;
+                rgb[i]   = (byte)Math.Max(0, Math.Min(255, (int)(L + sat*(b-L) + 0.5f)));
+                rgb[i+1] = (byte)Math.Max(0, Math.Min(255, (int)(L + sat*(g-L) + 0.5f)));
+                rgb[i+2] = (byte)Math.Max(0, Math.Min(255, (int)(L + sat*(r-L) + 0.5f)));
             }
         }
     }
@@ -78,17 +85,26 @@ foreach ($f in $Files) {
             $rgb = [byte[]]::new($bytes)
             [System.Runtime.InteropServices.Marshal]::Copy($ptr, $rgb, 0, $bytes)
             $bpp = [System.Drawing.Image]::GetPixelFormatSize($img.PixelFormat) / 8
+            $sat = [float]$SaturationFactor
             try {
-                [BrightnessLut]::Apply($rgb, $lut, $bpp)
+                [BrightnessLut]::Apply($rgb, $lut, $bpp, $sat)
             } catch {
                 $n = $rgb.Length
                 if ($bpp -eq 4) {
                     for ($i = 0; $i -lt $n; $i += 4) {
-                        $rgb[$i] = $lut[$rgb[$i]]; $rgb[$i+1] = $lut[$rgb[$i+1]]; $rgb[$i+2] = $lut[$rgb[$i+2]]
+                        $b = $lut[$rgb[$i]]; $g = $lut[$rgb[$i+1]]; $r = $lut[$rgb[$i+2]]
+                        $L = 0.299*$r + 0.587*$g + 0.114*$b
+                        $rgb[$i]   = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($b-$L) + 0.5)))
+                        $rgb[$i+1] = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($g-$L) + 0.5)))
+                        $rgb[$i+2] = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($r-$L) + 0.5)))
                     }
                 } else {
                     for ($i = 0; $i -lt $n; $i += $bpp) {
-                        for ($c = 0; $c -lt [Math]::Min(3, $bpp); $c++) { $rgb[$i+$c] = $lut[$rgb[$i+$c]] }
+                        $b = $lut[$rgb[$i]]; $g = $lut[$rgb[$i+1]]; $r = $lut[$rgb[$i+2]]
+                        $L = 0.299*$r + 0.587*$g + 0.114*$b
+                        $rgb[$i]   = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($b-$L) + 0.5)))
+                        $rgb[$i+1] = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($g-$L) + 0.5)))
+                        $rgb[$i+2] = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($r-$L) + 0.5)))
                     }
                 }
             }
@@ -108,6 +124,28 @@ foreach ($f in $Files) {
             $img.Dispose()
             $img = $out
             $attr.Dispose()
+            if ($SaturationFactor -ne 1.0) {
+                $idLut = [byte[]]::new(256); for ($ii = 0; $ii -lt 256; $ii++) { $idLut[$ii] = [byte]$ii }
+                $bmpData = $img.LockBits([System.Drawing.Rectangle]::new(0, 0, $img.Width, $img.Height), [System.Drawing.Imaging.ImageLockMode]::ReadWrite, $img.PixelFormat)
+                $ptr = $bmpData.Scan0
+                $bytes = [Math]::Abs($bmpData.Stride) * $img.Height
+                $rgb = [byte[]]::new($bytes)
+                [System.Runtime.InteropServices.Marshal]::Copy($ptr, $rgb, 0, $bytes)
+                $bpp = 4
+                $sat = [float]$SaturationFactor
+                try { [BrightnessLut]::Apply($rgb, $idLut, $bpp, $sat) } catch {
+                    $n = $rgb.Length
+                    for ($i = 0; $i -lt $n; $i += 4) {
+                        $b = $rgb[$i]; $g = $rgb[$i+1]; $r = $rgb[$i+2]
+                        $L = 0.299*$r + 0.587*$g + 0.114*$b
+                        $rgb[$i]   = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($b-$L) + 0.5)))
+                        $rgb[$i+1] = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($g-$L) + 0.5)))
+                        $rgb[$i+2] = [Math]::Min(255, [Math]::Max(0, [int]($L + $sat*($r-$L) + 0.5)))
+                    }
+                }
+                [System.Runtime.InteropServices.Marshal]::Copy($rgb, 0, $ptr, $bytes)
+                $img.UnlockBits($bmpData)
+            }
         }
         $img.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
         $img.Dispose()
