@@ -90,3 +90,7 @@ coverage/
 *.7z
 *.bak
 *.tmp
+
+bin/
+obj/
+*.exe
