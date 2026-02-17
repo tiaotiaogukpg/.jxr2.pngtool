@@ -3,20 +3,29 @@ chcp 936 >nul
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+REM ????????? JXR2PNG.exe????????????? .jxr?
+if exist "%~dp0JXR2PNG.exe" (
+    "%~dp0JXR2PNG.exe"
+    echo.
+    pause
+    exit /b 0
+)
+
+REM ? exe ???? PowerShell ??
 echo ========================================
-echo   JXR 转 PNG 批量转换
+echo   JXR to PNG
 echo ========================================
 echo.
 
 set "n=0"
 for %%F in (*.jxr) do set /a n+=1
 if %n%==0 (
-    echo 当前目录下未找到 .jxr 文件。
+    echo ???????? .jxr ??
     pause
     exit /b 0
 )
 
-echo 找到 %n% 个 .jxr 文件，开始处理...
+echo ?? %n% ? .jxr ???????...
 echo.
 
 set "ps1=%~dp0JXR2PNG.ps1"
@@ -29,14 +38,14 @@ for %%F in (*.jxr) do (
     powershell -NoProfile -NoLogo -ExecutionPolicy Bypass -File "!ps1!" "!jxrPath!" 1>nul
     if exist "!pngPath!" (
         del "%%F"
-        echo       转换完成，已删除 .jxr
+        echo       ???????? .jxr
     ) else (
-        echo       转换失败
+        echo       ????
     )
     echo.
 )
 
 echo ========================================
-echo   全部完成
+echo   ????
 echo ========================================
 pause

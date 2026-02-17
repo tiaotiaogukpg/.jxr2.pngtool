@@ -1,0 +1,15 @@
+D:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.GeneratedMSBuildEditorConfig.editorconfig
+D:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.AssemblyInfoInputs.cache
+D:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.AssemblyInfo.cs
+D:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.csproj.CoreCompileInputs.cache
+D:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.sourcelink.json
+d:\tools\N01_.JXRtrans2.pngtool\bin\Release\net10.0\JXR2PNG.exe
+d:\tools\N01_.JXRtrans2.pngtool\bin\Release\net10.0\JXR2PNG.deps.json
+d:\tools\N01_.JXRtrans2.pngtool\bin\Release\net10.0\JXR2PNG.runtimeconfig.json
+d:\tools\N01_.JXRtrans2.pngtool\bin\Release\net10.0\JXR2PNG.dll
+d:\tools\N01_.JXRtrans2.pngtool\bin\Release\net10.0\JXR2PNG.pdb
+d:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.dll
+d:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\refint\JXR2PNG.dll
+d:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.pdb
+d:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\JXR2PNG.genruntimeconfig.cache
+d:\tools\N01_.JXRtrans2.pngtool\obj\Release\net10.0\ref\JXR2PNG.dll
