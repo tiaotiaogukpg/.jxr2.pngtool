@@ -10,7 +10,6 @@
 |------|------|
 | **Program.cs** | 主程序源码 |
 | **JXR2PNG.csproj** | 项目配置 |
-| **publish.bat** | 编译并输出单 exe 到 `publish\` |
 | **JXR2PNG.bat** | 运行器：优先 exe，否则调用 ps1 |
 | **JXR2PNG.ps1** | 脚本备选（需 PowerShell） |
 | **README.md** | 说明 |
@@ -19,16 +18,19 @@
 
 ## 使用
 
-1. 运行 `publish.bat` 生成 `publish\JXR2PNG.exe`
-2. 将 `JXR2PNG.exe` 复制到 GameBar 捕获目录（如 `Videos\Captures\`）
-3. 双击运行，自动转换该目录下所有 `.jxr`
+1. 将 `JXR2PNG.exe` 复制到 GameBar 捕获目录（如 `Videos\Captures\`）
+2. 双击运行，自动转换该目录下所有 `.jxr`
 
 ---
 
-## 编译
+## exe 与 bat+ps1 的区别
 
-```bash
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
-```
-
-或直接运行 `publish.bat`，输出到 `publish\JXR2PNG.exe`（约 11MB，无需安装 .NET）。
+| 项目 | **JXR2PNG.exe** | **JXR2PNG.bat + JXR2PNG.ps1** |
+|------|-----------------|-------------------------------|
+| **依赖** | 无，单文件自带 .NET | 需系统有 PowerShell |
+| **调用关系** | 独立运行 | bat 优先调 exe，无 exe 时逐个调用 ps1 |
+| **解码/编码** | WinRT（内存流）优先，失败回退 WIC（COM） | 纯 WinRT（StorageFile） |
+| **色彩处理** | WIC 色彩管理 或 WinRT 直接输出 | WinRT 输出后，用 System.Drawing 做线性→sRGB gamma 校正 |
+| **HDR 支持** | 支持，非 Bgra8 自动转为 Bgra8 | 直接 SetSoftwareBitmap，HDR 格式可能失败 |
+| **中文路径** | 用内存流，避免路径问题 | StorageFile 对部分中文路径可能异常 |
+| **输出** | 控制台显示扫描目录、每文件结果、成功/失败统计 | bat 静默调用 ps1，仅显示成功/失败 |
