@@ -22,10 +22,11 @@ PowerShell 脚本，负责：
 
 1. 接收一个或多个 `.jxr` 文件路径
 2. 使用 Windows 内置 WIC（WMPhoto 解码器）解码 JXR
-3. 使用 WIC PNG 编码器输出同名 `.png`，覆盖已有同名文件
-4. 输出生成的 `.png` 完整路径
+3. 使用 WIC PNG 编码器输出同名 `.png`
+4. 线性→sRGB gamma 校正（WIC 可能输出线性，导致发灰）
+5. 输出生成的 `.png` 完整路径
 
-纯 WIC 流程，无主观增强。HDR→SDR 由 Windows WIC 自动处理，输出标准 sRGB PNG。
+WIC 解码+编码，仅做线性→sRGB gamma 校正以保证正确显示。
 
 ---
 
